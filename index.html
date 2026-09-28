@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador Avançado de Chamados</title>
+    <!-- Bibliotecas para parsing e exportação de planilhas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-page: #f8fafc;
+            --bg-card: #ffffff;
+            --text-color: #334155;
+            --text-heading: #1e293b;
+            --border-color: #e2e8f0;
+            --th-bg: #f1f5f9;
+            --hover-bg: #f8fafc;
+            --input-bg: #ffffff;
+        }
+
+        body.dark-mode {
+            --primary: #3b82f6;
+            --primary-hover: #60a5fa;
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --text-color: #cbd5e1;
+            --text-heading: #f8fafc;
+            --border-color: #334155;
+            --th-bg: #334155;
+            --hover-bg: #1e293b;
+            --input-bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-page);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 1350px;
+            margin: 0 auto;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--text-heading);
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 2fr 2fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: var(--text-heading);
+        }
+
+        input[type="text"], select, input[type="color"], textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+
+        textarea {
+            resize: vertical;
+            height: 38px;
+        }
+
+        select[multiple] {
+            height: 100px;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #64748b;
+        }
+        .btn-secondary:hover {
+            background-color: #475569;
+        }
+
+        .btn-success {
+            background-color: #10b981;
+        }
+        .btn-success:hover {
+            background-color: #059669;
+        }
+
+        .btn-danger {
+            background-color: #ef4444;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* Abas & Animações */
+        .tabs-container {
+            display: flex;
+            gap: 12px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .tab-item {
+            padding: 10px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            user-select: none;
+            position: relative;
+        }
+
+        .tab-item:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .tab-item.active {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border-color: transparent;
+        }
+
+        .tab-actions {
+            display: none;
+            gap: 4px;
+            margin-left: 6px;
+        }
+
+        .tab-item:hover .tab-actions {
+            display: flex;
+        }
+
+        .tab-color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .badge-count {
+            background-color: rgba(100, 116, 139, 0.2);
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        /* Tabela */
+        .search-bar {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            max-height: 550px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: var(--th-bg);
+            color: var(--text-heading);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        tr:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .obs-input {
+            width: 100%;
+            min-width: 180px;
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+
+        .badge-cat {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #fff;
+            font-weight: bold;
+            margin-right: 4px;
+            margin-bottom: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-bar">
+        <h1>Gerenciador Avançado de Chamados</h1>
+        <button class="btn btn-secondary" id="themeToggleBtn" onclick="alternarTema()">🌙 Modo Escuro</button>
+    </div>
+
+    <!-- 1. Importar / Exportar / Persistência -->
+    <div class="card">
+        <h3>1. Gerenciamento de Planilha e Backup</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <button class="btn" onclick="document.getElementById('fileInput').click()">📥 Importar/Mesclar Planilha (.csv / .xlsx)</button>
+            <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="carregarArquivo(event)">
+
+            <button class="btn btn-success" onclick="exportarPlanilhaProcessada()">📊 Exportar Planilha Completa com Observações (.csv)</button>
+            
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+                <button class="btn btn-secondary" onclick="exportarCategoriasJSON()">💾 Exportar Configuração de Categorias</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('jsonInput').click()">📂 Importar Categorias</button>
+                <input type="file" id="jsonInput" accept=".json" style="display: none;" onchange="importarCategoriasJSON(event)">
+            </div>
+        </div>
+        <p style="font-size: 12px; margin-top: 10px; color: #64748b;">
+            💡 <b>Nota de Validação:</b> Ao importar novas planilhas, os chamados serão validados pelo <b>ID</b>. Se um chamado já existir, suas <b>Observações</b> e <b>Categorias atreladas</b> serão preservadas integralmente.
+        </p>
+    </div>
+
+    <!-- 2. Form de Categoria -->
+    <div class="card">
+        <h3 id="formTitle">2. Criar Subcategoria</h3>
+        <input type="hidden" id="editCatId" value="">
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="catNome">Nome da Subcategoria:</label>
+                <input type="text" id="catNome" placeholder="Ex: Urgente / Cliente XPTO">
+            </div>
+            
+            <div class="form-group">
+                <label for="catCor">Cor da Aba:</label>
+                <input type="color" id="catCor" value="#3b82f6">
+            </div>
+
+            <div class="form-group">
+                <label for="catTipoRegra">Tipo de Atribuição:</label>
+                <select id="catTipoRegra" onchange="alternarCamposRegra()">
+                    <option value="status">Por Status do Chamado</option>
+                    <option value="ids">Por IDs Específicos</option>
+                    <option value="empresa">Por Empresa</option>
+                    <option value="assinadoPara">Por Assinado Para (Responsável)</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="groupStatus">
+                <label for="catStatus">Status Selecionados:</label>
+                <select id="catStatus" multiple>
+                    <option value="Novo">Novo</option>
+                    <option value="Fechado">Fechado</option>
+                    <option value="Em Atendimento (Suporte)">Em Atendimento (Suporte)</option>
+                    <option value="Triagem (Na comissão)">Triagem (Na comissão)</option>
+                    <option value="Desenvolvimento">Desenvolvimento</option>
+                    <option value="Aguardando Informações (Cliente)">Aguardando Informações (Cliente)</option>
+                    <option value="Documentação (Análise)">Documentação (Análise)</option>
+                    <option value="Stand By (Sugestões para desenvolvimento futuro)">Stand By</option>
+                    <option value="Negociação (Comercial)">Negociação (Comercial)</option>
+                    <option value="Aguardando Aprovação (PO)">Aguardando Aprovação (PO)</option>
+                    <option value="Reprovado">Reprovado</option>
+                    <option value="Aguardando Atendimento (Suporte)">Aguardando Atendimento (Suporte)</option>
+                    <option value="Solicitado Fechamento">Solicitado Fechamento</option>
+                    <option value="Com Pendência">Com Pendência</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="groupIds" style="display: none;">
+                <label for="catIds">IDs dos Chamados:</label>
+                <input type="text" id="catIds" placeholder="Ex: 61037, 63275, 63277">
+            </div>
+
+            <div class="form-group" id="groupEmpresa" style="display: none;">
+                <label for="catEmpresa">Nome(s) da(s) Empresa(s):</label>
+                <input type="text" id="catEmpresa" placeholder="Ex: Empresa A, Empresa B">
+            </div>
+
+            <div class="form-group" id="groupAssinadoPara" style="display: none;">
+                <label for="catAssinadoPara">Assinado Para (Responsável):</label>
+                <input type="text" id="catAssinadoPara" placeholder="Ex: João Silva, Maria Santos">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="salvarCategoria()">Salvar Categoria</button>
+            <button class="btn btn-secondary" id="btnCancelEdit" style="display:none;" onclick="cancelarEdicao()">Cancelar Edição</button>
+        </div>
+    </div>
+
+    <!-- 3. Abas com Animação -->
+    <div class="tabs-container" id="tabsArea">
+        <div class="tab-item active" onclick="filtrarPorCategoria(null, this)">
+            <span class="tab-color-indicator" style="background-color: #64748b;"></span>
+            Todos os Chamados
+            <span class="badge-count" id="totalCount">0</span>
+        </div>
+    </div>
+
+    <!-- 4. Pesquisa e Tabela de Dados -->
+    <div class="card" style="margin-top: 15px;">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="🔍 Pesquisar em todos os campos por palavra-chave..." oninput="filtrarDadosEmTempoReal()" style="max-width: 450px;">
+            <span id="resultCount" style="font-size: 13px; font-weight: 600;">0 registro(s) exibido(s)</span>
+        </div>
+
+        <div class="table-responsive">
+            <table id="dataTable">
+                <thead>
+                    <tr id="tableHead">
+                        <th>Nenhum dado carregado. Importe uma planilha acima.</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let dadosPlanilha = []; // Array principal de chamados
+    let categorias = [];
+    let categoriaAtiva = null;
+    let observacoesMap = {}; // Guarda { [idChamado]: "minha observacao" }
+
+    // Inicialização do Sistema
+    window.onload = function() {
+        carregarConfiguracoesSalvas();
+    };
+
+    function alternarTema() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        document.getElementById('themeToggleBtn').innerText = isDark ? '☀️ Modo Claro' : '🌙 Modo Escuro';
+        localStorage.setItem('theme_preference', isDark ? 'dark' : 'light');
+    }
+
+    function alternarCamposRegra() {
+        const tipo = document.getElementById('catTipoRegra').value;
+        document.getElementById('groupStatus').style.display = tipo === 'status' ? 'block' : 'none';
+        document.getElementById('groupIds').style.display = tipo === 'ids' ? 'block' : 'none';
+        document.getElementById('groupEmpresa').style.display = tipo === 'empresa' ? 'block' : 'none';
+        document.getElementById('groupAssinadoPara').style.display = tipo === 'assinadoPara' ? 'block' : 'none';
+    }
+
+    // Carregar Arquivos CSV ou Excel
+    function carregarArquivo(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        if (file.name.endsWith('.csv')) {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processarEMesclarPlanilha(results.data);
+                }
+            });
+        } else {
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                processarEMesclarPlanilha(json);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    }
+
+    // Mesclar mantendo IDs e observações existentes
+    function processarEMesclarPlanilha(novosDados) {
+        if (!novosDados || novosDados.length === 0) return;
+
+        let novosAtribuidos = 0;
+
+        novosDados.forEach(novoRow => {
+            const idKey = Object.keys(novoRow).find(k => k.toLowerCase() === 'id');
+            const idVal = idKey ? String(novoRow[idKey]).trim() : null;
+
+            if (idVal) {
+                // Verificar se já temos observações importadas na própria planilha
+                const obsKey = Object.keys(novoRow).find(k => k.toLowerCase().includes('observações') || k.toLowerCase().includes('observacoes'));
+                if (obsKey && novoRow[obsKey] && !observacoesMap[idVal]) {
+                    observacoesMap[idVal] = novoRow[obsKey];
+                }
+
+                // Procurar se já existe na lista atual
+                const indexExistente = dadosPlanilha.findIndex(item => {
+                    const itemKey = Object.keys(item).find(k => k.toLowerCase() === 'id');
+                    return itemKey && String(item[itemKey]).trim() === idVal;
+                });
+
+                if (indexExistente !== -1) {
+                    // Mantém observações já gravadas no sistema
+                    dadosPlanilha[indexExistente] = {
+                        ...novoRow,
+                        ...dadosPlanilha[indexExistente]
+                    };
+                } else {
+                    dadosPlanilha.push(novoRow);
+                    novosAtribuidos++;
+                }
+            } else {
+                dadosPlanilha.push(novoRow);
+            }
+        });
+
+        salvarPlanilhaELocalStorage();
+        atualizarContadores();
+        filtrarDadosEmTempoReal();
+        alert(`Planilha importada com sucesso! (${novosAtribuidos} novos chamados adicionados).`);
+    }
+
+    // Salvar e atualizar observação do chamado
+    function salvarObservacao(idChamado, texto) {
+        observacoesMap[idChamado] = texto;
+        localStorage.setItem('chamados_observacoes', JSON.stringify(observacoesMap));
+    }
+
+    // Renderizar a tabela
+    function renderizarTabela(dados) {
+        const thead = document.getElementById('tableHead');
+        const tbody = document.getElementById('tableBody');
+
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        document.getElementById('resultCount').innerText = `${dados.length} registro(s) exibido(s)`;
+
+        if (dados.length === 0) {
+            thead.innerHTML = '<tr><th>Nenhum registro encontrado</th></tr>';
+            return;
+        }
+
+        const colunasOriginais = Object.keys(dados[0]).filter(c => !['CategoriasAtribuidas', 'Observações Pessoais'].includes(c));
+
+        // Criar Cabeçalho
+        let headerRow = '<tr>';
+        headerRow += '<th style="width: 140px;">Categorias</th>';
+        headerRow += '<th style="width: 250px;">Suas Observações</th>';
+        colunasOriginais.forEach(col => {
+            headerRow += `<th>${col}</th>`;
+        });
+        headerRow += '</tr>';
+        thead.innerHTML = headerRow;
+
+        // Criar Linhas
+        dados.forEach(row => {
+            const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id');
+            const idVal = idKey ? String(row[idKey]).trim() : '';
+            const obsAtual = observacoesMap[idVal] || row['Observações Pessoais'] || '';
+
+            let tr = '<tr>';
+            
+            // Coluna de Categorias
+            tr += `<td>${obterBadgesCategorias(row, idVal)}</td>`;
+
+            // Coluna de Observação Personalizada
+            tr += `<td>
+                <div style="display:flex; gap:4px;">
+                    <textarea class="obs-input" id="obs_${idVal}" placeholder="Digite observações...">${obsAtual}</textarea>
+                    <button class="btn" style="padding: 2px 6px; font-size: 11px;" onclick="salvarObsClique('${idVal}')">💾</button>
+                </div>
+            </td>`;
+
+            // Colunas Originais
+            colunasOriginais.forEach(col => {
+                tr += `<td>${row[col] !== undefined ? row[col] : ''}</td>`;
+            });
+            tr += '</tr>';
+            tbody.innerHTML += tr;
+        });
+    }
+
+    function salvarObsClique(idChamado) {
+        const el = document.getElementById(`obs_${idChamado}`);
+        if (el) {
+            salvarObservacao(idChamado, el.value);
+            alert('Observação salva!');
+        }
+    }
+
+    function obterBadgesCategorias(row, idVal) {
+        let html = '';
+        categorias.forEach(cat => {
+            if (verificarPertenceCategoria(row, idVal, cat)) {
+                html += `<span class="badge-cat" style="background-color: ${cat.cor};">${cat.nome}</span>`;
+            }
+        });
+        return html || '<span style="color:#94a3b8; font-size:11px;">Sem categoria</span>';
+    }
+
+    function verificarPertenceCategoria(row, idVal, cat) {
+        if (cat.tipo === 'ids') {
+            return (cat.idsList || []).includes(idVal);
+        } else if (cat.tipo === 'empresa') {
+            const empKey = Object.keys(row).find(k => k.toLowerCase() === 'empresa');
+            const valEmp = empKey ? String(row[empKey]).trim().toLowerCase() : '';
+            return (cat.empresaList || []).some(e => valEmp.includes(e.toLowerCase()));
+        } else if (cat.tipo === 'assinadoPara') {
+            const assKey = Object.keys(row).find(k => k.toLowerCase().includes('assinado'));
+            const valAss = assKey ? String(row[assKey]).trim().toLowerCase() : '';
+            return (cat.assinadoParaList || []).some(a => valAss.includes(a.toLowerCase()));
+        } else {
+            // Por Status
+            const statusKey = Object.keys(row).find(k => k.toLowerCase() === 'status');
+            const valStatus = statusKey ? String(row[statusKey]).trim() : '';
+            return (cat.statusList || []).includes(valStatus);
+        }
+    }
+
+    // Salvar Categoria (Criar/Editar)
+    function salvarCategoria() {
+        const editId = document.getElementById('editCatId').value;
+        const nome = document.getElementById('catNome').value.trim();
+        const cor = document.getElementById('catCor').value;
+        const tipo = document.getElementById('catTipoRegra').value;
+
+        if (!nome) {
+            alert('Informe o nome da categoria.');
+            return;
+        }
+
+        let statusSelecionados = [];
+        let idsSelecionados = [];
+        let empresaSelecionadas = [];
+        let assinadoParaSelecionados = [];
+
+        if (tipo === 'status') {
+            const selectStatus = document.getElementById('catStatus');
+            statusSelecionados = Array.from(selectStatus.selectedOptions).map(opt => opt.value);
+            if (statusSelecionados.length === 0) {
+                alert('Selecione ao menos um status.');
+                return;
+            }
+        } else if (tipo === 'ids') {
+            const raw = document.getElementById('catIds').value;
+            idsSelecionados = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (idsSelecionados.length === 0) {
+                alert('Informe ao menos um ID.');
+                return;
+            }
+        } else if (tipo === 'empresa') {
+            const raw = document.getElementById('catEmpresa').value;
+            empresaSelecionadas = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (empresaSelecionadas.length === 0) {
+                alert('Informe ao menos uma empresa.');
+                return;
+            }
+        } else if (tipo === 'assinadoPara') {
+            const raw = document.getElementById('catAssinadoPara').value;
+            assinadoParaSelecionados = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (assinadoParaSelecionados.length === 0) {
+                alert('Informe ao menos um nome para Assinado Para.');
+                return;
+            }
+        }
+
+        const novaCat = {
+            id: editId ? Number(editId) : Date.now(),
+            nome, cor, tipo,
+            statusList: statusSelecionados,
+            idsList: idsSelecionados,
+            empresaList: empresaSelecionadas,
+            assinadoParaList: assinadoParaSelecionados
+        };
+
+        if (editId) {
+            const idx = categorias.findIndex(c => c.id == editId);
+            if (idx !== -1) categorias[idx] = novaCat;
+        } else {
+            categorias.push(novaCat);
+        }
+
+        salvarPlanilhaELocalStorage();
+        cancelarEdicao();
+        renderizarAbas();
+        filtrarDadosEmTempoReal();
+    }
+
+    function editarCategoria(id, e) {
+        e.stopPropagation();
+        const cat = categorias.find(c => c.id === id);
+        if (!cat) return;
+
+        document.getElementById('editCatId').value = cat.id;
+        document.getElementById('catNome').value = cat.nome;
+        document.getElementById('catCor').value = cat.cor;
+        document.getElementById('catTipoRegra').value = cat.tipo || 'status';
+        
+        alternarCamposRegra();
+
+        if (cat.tipo === 'ids') {
+            document.getElementById('catIds').value = (cat.idsList || []).join(', ');
+        } else if (cat.tipo === 'empresa') {
+            document.getElementById('catEmpresa').value = (cat.empresaList || []).join(', ');
+        } else if (cat.tipo === 'assinadoPara') {
+            document.getElementById('catAssinadoPara').value = (cat.assinadoParaList || []).join(', ');
+        } else {
+            const select = document.getElementById('catStatus');
+            Array.from(select.options).forEach(opt => {
+                opt.selected = (cat.statusList || []).includes(opt.value);
+            });
+        }
+
+        document.getElementById('formTitle').innerText = '✏️ Editar Subcategoria';
+        document.getElementById('btnCancelEdit').style.display = 'inline-block';
+    }
+
+    function excluirCategoria(id, e) {
+        e.stopPropagation();
+        if (confirm('Deseja realmente excluir esta subcategoria?')) {
+            categorias = categorias.filter(c => c.id !== id);
+            salvarPlanilhaELocalStorage();
+            renderizarAbas();
+            filtrarDadosEmTempoReal();
+        }
+    }
+
+    function cancelarEdicao() {
+        document.getElementById('editCatId').value = '';
+        document.getElementById('catNome').value = '';
+        document.getElementById('catIds').value = '';
+        document.getElementById('catEmpresa').value = '';
+        document.getElementById('catAssinadoPara').value = '';
+        document.getElementById('formTitle').innerText = '2. Criar Subcategoria';
+        document.getElementById('btnCancelEdit').style.display = 'none';
+    }
+
+    // Renderizar Abas de Filtro
+    function renderizarAbas() {
+        const tabsArea = document.getElementById('tabsArea');
+        tabsArea.innerHTML = `
+            <div class="tab-item ${categoriaAtiva === null ? 'active' : ''}" onclick="filtrarPorCategoria(null, this)">
+                <span class="tab-color-indicator" style="background-color: #64748b;"></span>
+                Todos os Chamados
+                <span class="badge-count" id="totalCount">${dadosPlanilha.length}</span>
+            </div>
+        `;
+
+        categorias.forEach(cat => {
+            const qtd = calcularQtdPorCategoria(cat);
+            const isActive = categoriaAtiva && categoriaAtiva.id === cat.id;
+            const tab = document.createElement('div');
+            tab.className = `tab-item ${isActive ? 'active' : ''}`;
+            tab.style.borderLeft = `4px solid ${cat.cor}`;
+            
+            tab.innerHTML = `
+                <span class="tab-color-indicator" style="background-color: ${cat.cor};"></span>
+                <span>${cat.nome}</span>
+                <span class="badge-count">${qtd}</span>
+                <div class="tab-actions">
+                    <button class="btn btn-secondary" style="padding:2px 5px; font-size:10px;" onclick="editarCategoria(${cat.id}, event)">✏️</button>
+                    <button class="btn btn-danger" style="padding:2px 5px; font-size:10px;" onclick="excluirCategoria(${cat.id}, event)">🗑️</button>
+                </div>
+            `;
+
+            tab.onclick = () => filtrarPorCategoria(cat, tab);
+            tabsArea.appendChild(tab);
+        });
+    }
+
+    function filtrarPorCategoria(categoria, tabElement) {
+        categoriaAtiva = categoria;
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        tabElement.classList.add('active');
+        filtrarDadosEmTempoReal();
+    }
+
+    // Filtro Combinado (Categoria + Pesquisa por palavra-chave)
+    function filtrarDadosEmTempoReal() {
+        const termo = document.getElementById('searchInput').value.toLowerCase().trim();
+
+        let resultado = dadosPlanilha.filter(row => {
+            const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id');
+            const idVal = idKey ? String(row[idKey]).trim() : '';
+
+            // 1. Filtrar por Categoria
+            if (categoriaAtiva) {
+                if (!verificarPertenceCategoria(row, idVal, categoriaAtiva)) return false;
+            }
+
+            // 2. Pesquisa de palavras avulsas em todos os campos
+            if (termo) {
+                const obs = observacoesMap[idVal] || '';
+                const conteudoLinha = Object.values(row).join(' ').toLowerCase() + ' ' + obs.toLowerCase();
+                return conteudoLinha.includes(termo);
+            }
+
+            return true;
+        });
+
+        renderizarTabela(resultado);
+    }
+
+    function calcularQtdPorCategoria(cat) {
+        return dadosPlanilha.filter(row => {
+            const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id');
+            const idVal = idKey ? String(row[idKey]).trim() : '';
+            return verificarPertenceCategoria(row, idVal, cat);
+        }).length;
+    }
+
+    // Exportar Planilha completa com Observações
+    function exportarPlanilhaProcessada() {
+        if (dadosPlanilha.length === 0) {
+            alert('Não há dados para exportar.');
+            return;
+        }
+
+        const dadosExportacao = dadosPlanilha.map(row => {
+            const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id');
+            const idVal = idKey ? String(row[idKey]).trim() : '';
+            
+            // Obter nomes de categorias atreladas
+            const catsAtribuidas = categorias
+                .filter(cat => verificarPertenceCategoria(row, idVal, cat))
+                .map(c => c.nome)
+                .join('; ');
+
+            return {
+                ...row,
+                'CategoriasAtribuidas': catsAtribuidas,
+                'Observações Pessoais': observacoesMap[idVal] || ''
+            };
+        });
+
+        const csv = Papa.unparse(dadosExportacao);
+        const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `chamados_gerenciados_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Persistência JSON e LocalStorage
+    function salvarPlanilhaELocalStorage() {
+        localStorage.setItem('chamados_categorias', JSON.stringify(categorias));
+        localStorage.setItem('chamados_observacoes', JSON.stringify(observacoesMap));
+        localStorage.setItem('chamados_dados', JSON.stringify(dadosPlanilha));
+    }
+
+    function carregarConfiguracoesSalvas() {
+        const theme = localStorage.getItem('theme_preference');
+        if (theme === 'dark') alternarTema();
+
+        const catsSalvas = localStorage.getItem('chamados_categorias');
+        if (catsSalvas) categorias = JSON.parse(catsSalvas);
+
+        const obsSalvas = localStorage.getItem('chamados_observacoes');
+        if (obsSalvas) observacoesMap = JSON.parse(obsSalvas);
+
+        const dadosSalvos = localStorage.getItem('chamados_dados');
+        if (dadosSalvos) dadosPlanilha = JSON.parse(dadosSalvos);
+
+        atualizarContadores();
+        filtrarDadosEmTempoReal();
+    }
+
+    function exportarCategoriasJSON() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(categorias, null, 2));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = "configuracao_categorias.json";
+        a.click();
+    }
+
+    function importarCategoriasJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                categorias = JSON.parse(e.target.result);
+                salvarPlanilhaELocalStorage();
+                renderizarAbas();
+                filtrarDadosEmTempoReal();
+                alert('Categorias importadas com sucesso!');
+            } catch (err) {
+                alert('Erro ao ler o arquivo JSON.');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function atualizarContadores() {
+        const total = document.getElementById('totalCount');
+        if (total) total.innerText = dadosPlanilha.length;
+        renderizarAbas();
+    }
+</script>
+
+</body>
+</html>
